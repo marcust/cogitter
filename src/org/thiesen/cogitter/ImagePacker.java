@@ -103,7 +103,7 @@ public class ImagePacker {
     public ImagePacker(final int width, final int height, final int padding,
             final boolean duplicateBorder) {
         this .image = new BufferedImage(width, height,
-                BufferedImage.TYPE_4BYTE_ABGR);
+                BufferedImage.TYPE_INT_RGB);
         this .padding = padding;
         this .duplicateBorder = duplicateBorder;
         this .root = new Node(0, 0, width, height, null, null, null);

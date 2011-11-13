@@ -128,7 +128,7 @@ public class Main {
             
             final double percentComplete = ((double)doneCount / (double)total) * 100D;
           
-            System.out.printf( "\rReading %.2f%%", Double.valueOf( percentComplete ) );
+            System.out.printf( "\rReading %.2f%% (%s of %s files)", Double.valueOf( percentComplete ), String.valueOf( doneCount ), String.valueOf( total ) );
             System.out.flush();
         }
         System.out.println();
@@ -149,7 +149,7 @@ public class Main {
         }
 
         for ( final Entry<String> entry : entrySet ) {
-            System.out.printf( "%s:\t%s\t%.2f%%%n", Strings.padEnd( entry.getElement(), 20, ' ' ), String.valueOf( entry.getCount() ), Double.valueOf( ( entry.getCount() / (double)sum ) * 100.0D )  );
+            System.out.printf( "%s\t%s\t%.2f%%%n", Strings.padEnd( entry.getElement() + ":", 40, ' ' ), String.valueOf( entry.getCount() ), Double.valueOf( ( entry.getCount() / (double)sum ) * 100.0D )  );
         }
     }
 
@@ -191,7 +191,7 @@ public class Main {
             final Rectangle insert = packer.insert( current.getWidth(), current.getHeight(), current );
 
             if ( insert == null ) {
-                System.err.println("Could not pack image with size " + current.getWidth() );
+                System.err.println("Could not pack image with size " + current.getWidth() + " in sorted");
                 continue;
             }
             
@@ -211,7 +211,7 @@ public class Main {
             final Rectangle insert = packer.insert( current.getWidth(), current.getHeight(), current );
 
             if ( insert == null ) {
-                System.err.println("Could not pack image with size " + current.getWidth() );
+                System.err.println("Could not pack image with size " + current.getWidth() + " in unsorted" );
                 continue;
             }
             
@@ -233,9 +233,9 @@ public class Main {
             System.out.println( percent );
             
             final int smallesBorder = Math.min( WIDTH, HEIGHT );
-            final int occupyableSpace = Math.min( (int)Math.floor( Math.sqrt( availableSize * percent ) ) , smallesBorder );
+            final int occupyableSpace = Math.min( (int)Math.floor( Math.sqrt( availableSize * percent * 0.7D ) ) , smallesBorder );
 
-            final String imageUrl = "http://www.gravatar.com/avatar/" + MD5Util.md5Hex( entry.getElement() ) + "?s=" +occupyableSpace;
+            final String imageUrl = "http://www.gravatar.com/avatar/" + MD5Util.md5Hex( entry.getElement() ) + "?s=" +occupyableSpace + "&d=identicon&r=x";
 
             final URL url = new URL( imageUrl );
             final URLConnection openConnection = url.openConnection();
@@ -264,11 +264,11 @@ public class Main {
                 current = image;
             }
 
-            final String text = String.format( "%s: %s Lines, %.2f%%", entry.getElement().replaceAll( "@.+", "" ), String.valueOf( entry.getCount() ), Double.valueOf( percent * 100.0D )  );
+            final String text = String.format( "%.2f%%, %s, %s Lines", Double.valueOf( percent * 100.0D ), entry.getElement().replaceAll( "@.+", "" ), String.valueOf( entry.getCount() )  );
             final Graphics2D graphics = current.createGraphics();
-            graphics.setColor(Color.WHITE);
+            graphics.setColor(Color.RED);
             
-            final int fontSize = Math.max( 12, (int)( (current.getHeight() * 0.025 )) );
+            final int fontSize = Math.max( 20, (int)( (current.getHeight() * 0.05 )) );
             
             graphics.setFont(new Font( "SansSerif", Font.BOLD, fontSize ) );
             graphics.drawString( text , 1  , current.getHeight() - fontSize );

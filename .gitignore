@@ -1,0 +1,10 @@
+.classpath
+.project
+*~
+build
+.ant-targets-build.xml
+.eclipse-bin
+src/twitter4j.properties
+bin/
+.settings/
+test-output/

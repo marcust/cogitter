@@ -34,14 +34,17 @@ import org.thiesen.cogitter.RectanglePacker.Rectangle;
 import com.google.common.base.Strings;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset.Entry;
 import com.google.common.io.ByteStreams;
 
 public class Main {
 
-    private final static int WIDTH = 1680;
-    private final static int HEIGHT = 1050;
+    private final static int WIDTH = 500;
+    private final static int HEIGHT = 500;
+    
+    private final static ImmutableSet<String> SOURCE_FILE_ENDINGS = ImmutableSet.of("java", "js", "c", "cpp", "sh", "h");
 
     private static class LineCounter implements Runnable {
 
@@ -105,7 +108,8 @@ public class Main {
         final List<Future<?>> futures = Lists.newLinkedList();
         while ( ( line = reader.readLine() ) != null ) {
             final String trimmed = line.trim();
-            if ( !trimmed.endsWith( ".java" ) ) {
+            final String suffix = line.substring( line.lastIndexOf( '.' ) + 1 );
+            if ( !SOURCE_FILE_ENDINGS.contains( suffix ) ) {
                 continue;
             }
             final Future<?> submitted = FILE_BLAME_READER_EXECUTOR.submit( new LineCounter( repo, counter, trimmed ) );

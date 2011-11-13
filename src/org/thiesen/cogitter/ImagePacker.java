@@ -282,7 +282,7 @@ public class ImagePacker {
     private static BufferedImage createImage(final int width, final int height,
             final Color color) {
         final BufferedImage image = new BufferedImage(width, height,
-                BufferedImage.TYPE_4BYTE_ABGR);
+                BufferedImage.TYPE_INT_RGB );
         final Graphics2D g = image.createGraphics();
         g.setColor(color);
         g.fillRect(0, 0, width, height);

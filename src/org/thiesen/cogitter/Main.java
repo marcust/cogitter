@@ -40,9 +40,6 @@ import com.google.common.io.ByteStreams;
 
 public class Main {
 
-    //private static final String REPO = "/home/marcus/workspace/starpath";
-    private static final String REPO = "/home/marcus/proj/hunter";
-
     private final static int WIDTH = 1680;
     private final static int HEIGHT = 1050;
 
@@ -52,20 +49,18 @@ public class Main {
 
         private final ConcurrentHashMultiset<String> _counter;
         private final String _filename;
+        private final File _repo;
 
-        public LineCounter( final ConcurrentHashMultiset<String> counter, final String filename ) {
+        public LineCounter( final File repo, final ConcurrentHashMultiset<String> counter, final String filename ) {
+            _repo =  repo;
             _counter = counter;
             _filename = filename;
         }
 
         @Override
         public void run() {
-            if ( !_filename.endsWith( ".java" ) ) {
-                return;
-            }
-
             final ProcessBuilder builder = new ProcessBuilder( "git", "annotate",  "-e", "--",  _filename );
-            builder.directory( new File( REPO ) );
+            builder.directory( _repo );
 
             try {
                 final Process process = builder.start();
@@ -92,8 +87,15 @@ public class Main {
     private final static ExecutorService FILE_BLAME_READER_EXECUTOR = Executors.newFixedThreadPool( Runtime.getRuntime().availableProcessors() + 1 );
 
     public static void main( final String[] args ) throws IOException, InterruptedException {
-        final ProcessBuilder builder = new ProcessBuilder( "git",  "ls-files" );
-        builder.directory( new File( REPO ) );
+        if ( args.length != 2 ) {
+            System.out.println("Usage: Main git-directory output-filename");
+            System.exit( 1 );
+        }
+        
+        final File repo = new File( args[0] );
+        final String outputBase = args[1];
+        final ProcessBuilder builder = new ProcessBuilder( "git", "ls-files" );
+        builder.directory( repo );
         final Process process = builder.start();
 
         final BufferedReader reader = new BufferedReader( new InputStreamReader( process.getInputStream() ) );
@@ -102,7 +104,11 @@ public class Main {
         String line;
         final List<Future<?>> futures = Lists.newLinkedList();
         while ( ( line = reader.readLine() ) != null ) {
-            final Future<?> submitted = FILE_BLAME_READER_EXECUTOR.submit( new LineCounter( counter, line.trim() ) );
+            final String trimmed = line.trim();
+            if ( !trimmed.endsWith( ".java" ) ) {
+                continue;
+            }
+            final Future<?> submitted = FILE_BLAME_READER_EXECUTOR.submit( new LineCounter( repo, counter, trimmed ) );
             futures.add( submitted );
             
         }
@@ -121,7 +127,7 @@ public class Main {
             }
             
             final double percentComplete = ((double)doneCount / (double)total) * 100D;
-            
+          
             System.out.printf( "\rReading %.2f%%", Double.valueOf( percentComplete ) );
             System.out.flush();
         }
@@ -131,7 +137,7 @@ public class Main {
         
         printStat( counter );
 
-        renderImage( counter );
+        renderImage( counter, outputBase );
     }
 
     private static void printStat( final ConcurrentHashMultiset<String> counter ) {
@@ -147,21 +153,19 @@ public class Main {
         }
     }
 
-    private static void renderImage( final ConcurrentHashMultiset<String> counter ) throws IOException {
-
-
+    private static void renderImage( final ConcurrentHashMultiset<String> counter, final String outputBase ) throws IOException {
         int sum = 0;
         for ( final Entry<String> entry : counter.entrySet() ) {
             sum += entry.getCount();
         }
 
-        final List<BufferedImage> images = loadImages( counter, sum );
+        final List<BufferedImage> images = loadImages( counter, sum, outputBase );
 
-        renderSortedComplete(  images );
-        renderComplete(  images );
+        renderSortedComplete(  images, outputBase );
+        renderComplete(  images, outputBase );
     }
 
-    private static void renderSortedComplete( final List<BufferedImage> inImages ) throws IOException {
+    private static void renderSortedComplete( final List<BufferedImage> inImages, final String outputBase ) throws IOException {
         final List<BufferedImage> images = Lists.newArrayList( inImages );
         final BufferedImage newImage = new BufferedImage( WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB );
         final RectanglePacker<BufferedImage> packer = new RectanglePacker<BufferedImage>( WIDTH, HEIGHT, 0 );
@@ -195,10 +199,10 @@ public class Main {
         }
 
         
-        ImageIO.write( newImage, "jpg", new File( "/home/marcus/hunter-sorted.jpg" ) );
+        ImageIO.write( newImage, "jpg", new File( outputBase + "-sorted.jpg" ) );
     }
 
-    private static void renderComplete( final List<BufferedImage> inImages ) throws IOException {
+    private static void renderComplete( final List<BufferedImage> inImages, final String outputBase ) throws IOException {
         final BufferedImage newImage = new BufferedImage( WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB );
         final RectanglePacker<BufferedImage> packer = new RectanglePacker<BufferedImage>( WIDTH, HEIGHT, 0 );
         final Graphics graphics = newImage.createGraphics();
@@ -215,10 +219,10 @@ public class Main {
         }
 
         
-        ImageIO.write( newImage, "jpg", new File( "/home/marcus/hunter-unsorted.jpg" ) );
+        ImageIO.write( newImage, "jpg", new File( outputBase + "-unsorted.jpg" ) );
     }
     
-    private static List<BufferedImage> loadImages( final ConcurrentHashMultiset<String> counter, final int sum )
+    private static List<BufferedImage> loadImages( final ConcurrentHashMultiset<String> counter, final int sum, final String outputBase )
     throws MalformedURLException, IOException {
         final double availableSize = WIDTH * HEIGHT;
         final ImmutableList.Builder<BufferedImage> images = ImmutableList.builder();
@@ -229,7 +233,7 @@ public class Main {
             System.out.println( percent );
             
             final int smallesBorder = Math.min( WIDTH, HEIGHT );
-            final int occupyableSpace = Math.min( (int)Math.sqrt( availableSize * percent ) , smallesBorder );
+            final int occupyableSpace = Math.min( (int)Math.floor( Math.sqrt( availableSize * percent ) ) , smallesBorder );
 
             final String imageUrl = "http://www.gravatar.com/avatar/" + MD5Util.md5Hex( entry.getElement() ) + "?s=" +occupyableSpace;
 
@@ -260,11 +264,11 @@ public class Main {
                 current = image;
             }
 
-            final String text = String.format( "%s: %s Lines, %.2f%%", entry.getElement(), String.valueOf( entry.getCount() ), Double.valueOf( percent * 100.0D )  );
+            final String text = String.format( "%s: %s Lines, %.2f%%", entry.getElement().replaceAll( "@.+", "" ), String.valueOf( entry.getCount() ), Double.valueOf( percent * 100.0D )  );
             final Graphics2D graphics = current.createGraphics();
             graphics.setColor(Color.WHITE);
             
-            final int fontSize = (int)( (current.getHeight() * 0.025 ));
+            final int fontSize = Math.max( 12, (int)( (current.getHeight() * 0.025 )) );
             
             graphics.setFont(new Font( "SansSerif", Font.BOLD, fontSize ) );
             graphics.drawString( text , 1  , current.getHeight() - fontSize );
@@ -282,7 +286,7 @@ public class Main {
             
         }
         
-        ImageIO.write( imagePacker.getImage(), "jpg", new File("/home/marcus/hunter2.jpg") );
+        ImageIO.write( imagePacker.getImage(), "jpg", new File( outputBase + "2.jpg" ) );
         
         return images.build();
     }

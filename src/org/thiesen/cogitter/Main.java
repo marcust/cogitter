@@ -41,10 +41,10 @@ import com.google.common.io.ByteStreams;
 
 public class Main {
 
-    private final static int WIDTH = 500;
-    private final static int HEIGHT = 500;
+    private final static int WIDTH = 1000;
+    private final static int HEIGHT = 1000;
     
-    private final static ImmutableSet<String> SOURCE_FILE_ENDINGS = ImmutableSet.of("java", "js", "c", "cpp", "sh", "h");
+    private final static ImmutableSet<String> SOURCE_FILE_ENDINGS = ImmutableSet.of("java", "js", "c", "cpp", "sh", "h", "fcgi", "pl", "py","tcl"  );
 
     private static class LineCounter implements Runnable {
 
@@ -74,7 +74,7 @@ public class Main {
                 while ( ( line = reader.readLine() ) != null ) {
                     final Matcher matcher = EMAIL_PATTERN.matcher( line );
                     if ( matcher.find() ) {
-                        _counter.add( matcher.group( 1 ) );
+                        _counter.add( matcher.group( 1 ).toLowerCase() );
                     }
                 }
                 process.waitFor();
@@ -90,13 +90,14 @@ public class Main {
     private final static ExecutorService FILE_BLAME_READER_EXECUTOR = Executors.newFixedThreadPool( Runtime.getRuntime().availableProcessors() + 1 );
 
     public static void main( final String[] args ) throws IOException, InterruptedException {
-        if ( args.length != 2 ) {
-            System.out.println("Usage: Main git-directory output-filename");
+        if ( args.length != 3 ) {
+            System.out.println("Usage: Main git-directory output-filename image-cache-directory");
             System.exit( 1 );
         }
-        
         final File repo = new File( args[0] );
         final String outputBase = args[1];
+        final String imageCache = args[2];
+        
         final ProcessBuilder builder = new ProcessBuilder( "git", "ls-files" );
         builder.directory( repo );
         final Process process = builder.start();
@@ -141,7 +142,7 @@ public class Main {
         
         printStat( counter );
 
-        renderImage( counter, outputBase );
+        renderImage( counter, imageCache, outputBase );
     }
 
     private static void printStat( final ConcurrentHashMultiset<String> counter ) {
@@ -157,13 +158,13 @@ public class Main {
         }
     }
 
-    private static void renderImage( final ConcurrentHashMultiset<String> counter, final String outputBase ) throws IOException {
+    private static void renderImage( final ConcurrentHashMultiset<String> counter, final String imageCache, final String outputBase ) throws IOException {
         int sum = 0;
         for ( final Entry<String> entry : counter.entrySet() ) {
             sum += entry.getCount();
         }
 
-        final List<BufferedImage> images = loadImages( counter, sum, outputBase );
+        final List<BufferedImage> images = loadImages( counter, sum, imageCache, outputBase );
 
         renderSortedComplete(  images, outputBase );
         renderComplete(  images, outputBase );
@@ -226,7 +227,7 @@ public class Main {
         ImageIO.write( newImage, "jpg", new File( outputBase + "-unsorted.jpg" ) );
     }
     
-    private static List<BufferedImage> loadImages( final ConcurrentHashMultiset<String> counter, final int sum, final String outputBase )
+    private static List<BufferedImage> loadImages( final ConcurrentHashMultiset<String> counter, final int sum, final String imageCache, final String outputBase )
     throws MalformedURLException, IOException {
         final double availableSize = WIDTH * HEIGHT;
         final ImmutableList.Builder<BufferedImage> images = ImmutableList.builder();
@@ -239,21 +240,10 @@ public class Main {
             final int smallesBorder = Math.min( WIDTH, HEIGHT );
             final int occupyableSpace = Math.min( (int)Math.floor( Math.sqrt( availableSize * percent * 0.7D ) ) , smallesBorder );
 
-            final String imageUrl = "http://www.gravatar.com/avatar/" + MD5Util.md5Hex( entry.getElement() ) + "?s=" +occupyableSpace + "&d=identicon&r=x";
-
-            final URL url = new URL( imageUrl );
-            final URLConnection openConnection = url.openConnection();
-
-            final InputStream inputStream = openConnection.getInputStream();
-
-            final byte[] imageBytes = ByteStreams.toByteArray( inputStream );
-
-            inputStream.close();
-
-            final BufferedImage image = ImageIO.read( new ByteArrayInputStream( imageBytes ) );
+            final BufferedImage image = loadImage( imageCache, entry.getElement() );
 
             final BufferedImage current;
-            if ( image.getWidth() < occupyableSpace ) {
+            if ( image.getWidth() != occupyableSpace ) {
                 final BufferedImage scaledImage = new BufferedImage(
                         occupyableSpace, occupyableSpace, BufferedImage.TYPE_INT_RGB);
                 final Graphics2D graphics2D = scaledImage.createGraphics();
@@ -293,6 +283,36 @@ public class Main {
         ImageIO.write( imagePacker.getImage(), "jpg", new File( outputBase + "2.jpg" ) );
         
         return images.build();
+    }
+
+    private static BufferedImage loadImage( final String imageCache, final String email ) throws IOException {
+        final File imageCacheFile = new File( imageCache, email );
+        
+        if ( imageCacheFile.exists() ) {
+            return ImageIO.read( imageCacheFile );
+        }
+        
+        final BufferedImage loaded = loadGravatarImage( email );
+        
+        ImageIO.write( loaded, "jpg", imageCacheFile );
+        
+        return loaded;
+    }
+
+    private static BufferedImage loadGravatarImage( final String email ) throws MalformedURLException, IOException {
+        final String imageUrl = "http://www.gravatar.com/avatar/" + MD5Util.md5Hex( email ) + "?s=512&d=identicon&r=x";
+
+        final URL url = new URL( imageUrl );
+        final URLConnection openConnection = url.openConnection();
+
+        final InputStream inputStream = openConnection.getInputStream();
+
+        final byte[] imageBytes = ByteStreams.toByteArray( inputStream );
+
+        inputStream.close();
+
+        final BufferedImage image = ImageIO.read( new ByteArrayInputStream( imageBytes ) );
+        return image;
     }
 
     public static class MD5Util {

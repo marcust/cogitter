@@ -240,6 +240,10 @@ public class Main {
             final int smallesBorder = Math.min( WIDTH, HEIGHT );
             final int occupyableSpace = Math.min( (int)Math.floor( Math.sqrt( availableSize * percent * 0.7D ) ) , smallesBorder );
 
+            if ( occupyableSpace == 0 ) {
+                continue;
+            }
+            
             final BufferedImage image = loadImage( imageCache, entry.getElement() );
 
             final BufferedImage current;

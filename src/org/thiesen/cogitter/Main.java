@@ -246,6 +246,10 @@ public class Main {
             
             final BufferedImage image = loadImage( imageCache, entry.getElement() );
 
+            if ( image == null ) {
+                continue;
+            }
+            
             final BufferedImage current;
             if ( image.getWidth() != occupyableSpace ) {
                 final BufferedImage scaledImage = new BufferedImage(
@@ -293,12 +297,23 @@ public class Main {
         final File imageCacheFile = new File( imageCache, email );
         
         if ( imageCacheFile.exists() ) {
-            return ImageIO.read( imageCacheFile );
+            try {
+                return ImageIO.read( imageCacheFile );
+            } catch ( final IOException e  ) {
+                System.err.println("Could not read cached image for " + email + ":" + e.getMessage() );
+                imageCacheFile.delete();
+            }
         }
         
         final BufferedImage loaded = loadGravatarImage( email );
         
-        ImageIO.write( loaded, "jpg", imageCacheFile );
+        try {
+            ImageIO.write( loaded, "jpg", imageCacheFile );
+        } catch ( final IOException e ) {
+            System.err.println("Could not store cache image for " + email + ": " + e.getMessage() );
+            imageCacheFile.delete();
+            return loaded;
+        }
         
         return loaded;
     }

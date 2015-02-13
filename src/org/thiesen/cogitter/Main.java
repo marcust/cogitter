@@ -90,7 +90,8 @@ public class Main {
 
     }
 
-    private final static ExecutorService FILE_BLAME_READER_EXECUTOR = Executors.newFixedThreadPool( Runtime.getRuntime().availableProcessors() + 1 );
+    private final static ExecutorService FILE_BLAME_READER_EXECUTOR = Executors.newFixedThreadPool( Math.max( Runtime.getRuntime().availableProcessors() +
+    		-1, 1 ) );
 
     public static void main( final String[] args ) throws IOException, InterruptedException {
         if ( args.length != 3 ) {
@@ -168,7 +169,7 @@ public class Main {
 
 			@Override
 			public int compare(Entry<String> o1, Entry<String> o2) {
-				return Integer.valueOf( o2.getCount() ).compareTo( Integer.valueOf( o2.getCount() ) );
+				return Integer.valueOf( o1.getCount() ).compareTo( Integer.valueOf( o2.getCount() ) );
 						
 						
 			}

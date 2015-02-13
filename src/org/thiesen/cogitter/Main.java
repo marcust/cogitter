@@ -18,6 +18,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -35,6 +37,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multiset.Entry;
 import com.google.common.io.ByteStreams;
@@ -141,11 +144,18 @@ public class Main {
         
         
         printStat( counter );
-
+   
         renderImage( counter, imageCache, outputBase );
     }
 
-    private static void printStat( final ConcurrentHashMultiset<String> counter ) {
+    private static void alias(String oldName, String newName,
+			ConcurrentHashMultiset<String> counter) {
+    	   counter.add( newName, counter.count( oldName ) );
+           counter.remove( oldName, counter.count( oldName ) );
+        
+	}
+
+	private static void printStat( final ConcurrentHashMultiset<String> counter ) {
         final Set<Entry<String>> entrySet = counter.entrySet();
 
         int sum = 0;
@@ -153,7 +163,18 @@ public class Main {
             sum += entry.getCount();
         }
 
-        for ( final Entry<String> entry : entrySet ) {
+        final List<Entry<String>> sortedEntries = Lists.newArrayList( entrySet );
+        Collections.sort( sortedEntries, new Comparator<Entry<String>>() {
+
+			@Override
+			public int compare(Entry<String> o1, Entry<String> o2) {
+				return Integer.valueOf( o2.getCount() ).compareTo( Integer.valueOf( o2.getCount() ) );
+						
+						
+			}
+		});
+        
+        for ( final Entry<String> entry : sortedEntries ) {
             System.out.printf( "%s\t%s\t%.2f%%%n", Strings.padEnd( entry.getElement() + ":", 40, ' ' ), String.valueOf( entry.getCount() ), Double.valueOf( ( entry.getCount() / (double)sum ) * 100.0D )  );
         }
     }

@@ -169,7 +169,7 @@ public class Main {
 
 			@Override
 			public int compare(Entry<String> o1, Entry<String> o2) {
-				return Integer.valueOf( o1.getCount() ).compareTo( Integer.valueOf( o2.getCount() ) );
+				return Integer.valueOf( o2.getCount() ).compareTo( Integer.valueOf( o1.getCount() ) );
 						
 						
 			}
